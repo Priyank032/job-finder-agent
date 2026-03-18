@@ -1,0 +1,38 @@
+services:
+  - type: worker
+    name: job-finder-agent
+    runtime: docker
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: RECIPIENT_EMAIL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: RECIPIENT_WHATSAPP
+        sync: false
+      - key: JOB_ROLES
+        sync: false
+      - key: JOB_LOCATION
+        sync: false
+      - key: EXPERIENCE_YEARS
+        sync: false
+      - key: MIN_MATCH_SCORE
+        sync: false
+      - key: NODE_ENV
+        value: production
