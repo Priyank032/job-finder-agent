@@ -4,3 +4,4 @@ logs/
 resume/my_resume.pdf
 src/resume/resume_data.json
 *.log
+.serverless/

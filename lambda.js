@@ -71,6 +71,25 @@ module.exports.weeklySummary = async (event) => {
 };
 
 /**
+ * Router handler - single entry point for Lambda container.
+ * EventBridge rules pass { "action": "daily" | "weekly" } as input.
+ * API Gateway or direct invocation defaults to manual run.
+ */
+module.exports.handler = async (event) => {
+  const action = event.action || 'manual';
+  logger.info(`Lambda: Router received action="${action}"`);
+
+  switch (action) {
+    case 'daily':
+      return module.exports.dailyRun(event);
+    case 'weekly':
+      return module.exports.weeklySummary(event);
+    default:
+      return module.exports.manualRun(event);
+  }
+};
+
+/**
  * Manual trigger via API Gateway POST /run
  */
 module.exports.manualRun = async (event) => {

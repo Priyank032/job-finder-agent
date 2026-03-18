@@ -3,6 +3,27 @@ const path = require('path');
 const chalk = require('chalk');
 
 const today = new Date().toISOString().split('T')[0];
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+// Lambda: /var/task is read-only, use /tmp for logs. Local: use ./logs
+const logDir = isLambda ? '/tmp/logs' : path.join(__dirname, '../../logs');
+
+const transports = [];
+
+// File transports only for local (Lambda logs go to CloudWatch via console)
+if (!isLambda) {
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logDir, `${today}.log`),
+      maxsize: 5242880,
+      maxFiles: 30,
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
+    })
+  );
+}
 
 const logger = winston.createLogger({
   level: 'info',
@@ -11,18 +32,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  transports: [
-    // File transport - daily log files
-    new winston.transports.File({
-      filename: path.join(__dirname, '../../logs', `${today}.log`),
-      maxsize: 5242880, // 5MB
-      maxFiles: 30,
-    }),
-    new winston.transports.File({
-      filename: path.join(__dirname, '../../logs', 'error.log'),
-      level: 'error',
-    }),
-  ],
+  transports,
 });
 
 // Console transport with colors

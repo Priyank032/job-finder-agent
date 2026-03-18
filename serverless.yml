@@ -1,11 +1,13 @@
 service: job-finder-agent
 
+useDotenv: true
+
 provider:
   name: aws
   runtime: nodejs20.x
-  region: ap-south-1  # Mumbai (closest to India)
+  region: ap-south-1
   memorySize: 512
-  timeout: 900  # 15 min max (agent takes ~4 min)
+  timeout: 900
   environment:
     ANTHROPIC_API_KEY: ${env:ANTHROPIC_API_KEY}
     GEMINI_API_KEY: ${env:GEMINI_API_KEY, ''}
@@ -18,15 +20,14 @@ provider:
     TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN, ''}
     TWILIO_WHATSAPP_FROM: ${env:TWILIO_WHATSAPP_FROM, ''}
     RECIPIENT_WHATSAPP: ${env:RECIPIENT_WHATSAPP, ''}
-    JOB_ROLES: ${env:JOB_ROLES, 'Software Engineer, Full Stack Developer'}
-    JOB_LOCATION: ${env:JOB_LOCATION, 'India, Remote'}
+    JOB_ROLES: ${env:JOB_ROLES, 'Software Engineer'}
+    JOB_LOCATION: ${env:JOB_LOCATION, 'India'}
     EXPERIENCE_YEARS: ${env:EXPERIENCE_YEARS, '3'}
     MIN_MATCH_SCORE: ${env:MIN_MATCH_SCORE, '60'}
     MAX_JOBS_PER_DAY: ${env:MAX_JOBS_PER_DAY, '30'}
     NODE_ENV: production
 
 functions:
-  # Daily job finder - 7 AM IST (1:30 AM UTC) Mon-Sat
   dailyRun:
     handler: lambda.dailyRun
     events:
@@ -35,7 +36,6 @@ functions:
           enabled: true
           description: "Daily job finder at 7 AM IST (Mon-Sat)"
 
-  # Weekly summary - Monday 7:30 AM IST (2:00 AM UTC)
   weeklySummary:
     handler: lambda.weeklySummary
     events:
@@ -44,16 +44,12 @@ functions:
           enabled: true
           description: "Weekly summary every Monday 7:30 AM IST"
 
-  # Manual trigger via API Gateway (optional)
   manualRun:
     handler: lambda.manualRun
     events:
       - http:
           path: /run
           method: post
-
-plugins:
-  - serverless-offline
 
 package:
   patterns:
@@ -63,4 +59,5 @@ package:
     - '!.git/**'
     - '!.dockerignore'
     - '!Dockerfile'
+    - '!Dockerfile.lambda'
     - '!render.yaml'
