@@ -1,0 +1,45 @@
+{
+  "name": "job-finder-agent",
+  "version": "1.0.0",
+  "description": "AI-powered job finder agent that scrapes jobs, matches with resume using AI, and sends notifications",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "setup": "node index.js --setup",
+    "run-now": "node index.js --run-now",
+    "test-email": "node index.js --test-email",
+    "test-whatsapp": "node index.js --test-whatsapp",
+    "dev": "nodemon index.js --run-now"
+  },
+  "keywords": [
+    "job-finder",
+    "ai-agent",
+    "web-scraping",
+    "job-matching"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.9",
+    "chalk": "^4.1.2",
+    "cheerio": "^1.0.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.9.5",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16",
+    "openai": "^4.77.0",
+    "pdf-parse": "^1.1.1",
+    "puppeteer": "^23.11.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "readline-sync": "^1.4.10",
+    "ts-jobspy": "^2.0.3",
+    "twilio": "^5.4.3",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Matches Report</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:700px;margin:0 auto;background:#ffffff;">
+    <!-- Header Banner -->
+    <tr>
+      <td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:30px 40px;text-align:center;">
+        <h1 style="color:#ffffff;margin:0;font-size:24px;">{{TITLE}}</h1>
+        <p style="color:#e0d4f7;margin:8px 0 0;font-size:14px;">{{SUBTITLE}}</p>
+      </td>
+    </tr>
+
+    <!-- Summary Banner -->
+    <tr>
+      <td style="padding:20px 40px;background:#f8f9ff;border-bottom:1px solid #e8e8e8;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="text-align:center;padding:10px;">
+              <div style="font-size:28px;font-weight:bold;color:#667eea;">{{TOTAL_JOBS}}</div>
+              <div style="font-size:12px;color:#888;text-transform:uppercase;">Jobs Found</div>
+            </td>
+            <td style="text-align:center;padding:10px;">
+              <div style="font-size:28px;font-weight:bold;color:#764ba2;">{{PLATFORMS_COUNT}}</div>
+              <div style="font-size:12px;color:#888;text-transform:uppercase;">Platforms</div>
+            </td>
+            <td style="text-align:center;padding:10px;">
+              <div style="font-size:28px;font-weight:bold;color:#22c55e;">{{TOP_SCORE}}%</div>
+              <div style="font-size:12px;color:#888;text-transform:uppercase;">Top Match</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Top Matches Section -->
+    {{#TOP_MATCHES}}
+    <tr>
+      <td style="padding:30px 40px 10px;">
+        <h2 style="color:#333;font-size:18px;margin:0;border-bottom:2px solid #667eea;padding-bottom:8px;">
+          TOP MATCHES (80%+)
+        </h2>
+      </td>
+    </tr>
+    {{TOP_MATCHES_CARDS}}
+    {{/TOP_MATCHES}}
+
+    <!-- Cold Email Opportunities -->
+    {{#COLD_EMAIL}}
+    <tr>
+      <td style="padding:30px 40px 10px;">
+        <h2 style="color:#333;font-size:18px;margin:0;border-bottom:2px solid #f59e0b;padding-bottom:8px;">
+          COLD EMAIL OPPORTUNITIES
+        </h2>
+      </td>
+    </tr>
+    {{COLD_EMAIL_CARDS}}
+    {{/COLD_EMAIL}}
+
+    <!-- Other Good Matches -->
+    {{#OTHER_MATCHES}}
+    <tr>
+      <td style="padding:30px 40px 10px;">
+        <h2 style="color:#333;font-size:18px;margin:0;border-bottom:2px solid #22c55e;padding-bottom:8px;">
+          OTHER GOOD MATCHES (60-79%)
+        </h2>
+      </td>
+    </tr>
+    {{OTHER_MATCHES_LIST}}
+    {{/OTHER_MATCHES}}
+
+    <!-- Footer -->
+    <tr>
+      <td style="padding:25px 40px;background:#f8f9ff;border-top:1px solid #e8e8e8;text-align:center;">
+        <p style="color:#888;font-size:12px;margin:0;">
+          Jobs fetched from: {{PLATFORMS_LIST}}<br>
+          Run at: {{RUN_TIMESTAMP}}<br><br>
+          Powered by AI Job Finder Agent
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
