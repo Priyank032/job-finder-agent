@@ -191,9 +191,14 @@ async function runAgent() {
     return;
   }
 
-  // Step 3: AI Matching
+  // Step 3: AI Matching (cap at 100 to stay within Lambda timeout)
+  const maxToMatch = 100;
+  const jobsToMatch = uniqueJobs.slice(0, maxToMatch);
+  if (uniqueJobs.length > maxToMatch) {
+    logger.info(`Capping AI matching at ${maxToMatch} of ${uniqueJobs.length} unique jobs`);
+  }
   logger.info('Step 3/5: AI matching jobs to resume...');
-  const matchedJobs = await matchJobs(resumeData, uniqueJobs);
+  const matchedJobs = await matchJobs(resumeData, jobsToMatch);
 
   if (matchedJobs.length === 0) {
     logger.info(`No jobs met the minimum match score of ${config.minMatchScore}%`);

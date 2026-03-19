@@ -58,8 +58,8 @@ async function matchJobs(resumeData, jobs) {
   logger.info(`Using ${provider.name} for AI matching (${jobs.length} jobs to process)`);
 
   const matched = [];
-  const batchSize = 3;   // small batches to avoid rate limits
-  const delayMs = 3000;  // 3 sec between batches for rate limit safety
+  const batchSize = 5;   // 5 concurrent requests
+  const delayMs = 2000;  // 2 sec between batches
 
   for (let i = 0; i < jobs.length; i += batchSize) {
     const batch = jobs.slice(i, i + batchSize);
