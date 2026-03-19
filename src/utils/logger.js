@@ -58,14 +58,14 @@ if (process.env.NODE_ENV !== 'test') {
 // Platform-specific logging helpers
 logger.platform = (name, count) => {
   if (count > 0) {
-    logger.info(`${chalk.green('✅')} ${name}: ${count} jobs found`);
+    logger.info(`[OK] ${name}: ${count} jobs found`);
   } else {
-    logger.warn(`${chalk.red('❌')} ${name}: no jobs found`);
+    logger.warn(`[MISS] ${name}: no jobs found`);
   }
 };
 
 logger.platformError = (name, error) => {
-  logger.error(`${chalk.red('❌')} ${name}: ${error}`);
+  logger.error(`[FAIL] ${name}: ${error}`);
 };
 
 module.exports = logger;
