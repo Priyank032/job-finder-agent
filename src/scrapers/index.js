@@ -2,18 +2,20 @@ const config = require('../../config');
 const logger = require('../utils/logger');
 const { scrapeWithJobSpy } = require('./jobspy');
 
-// Supplementary scrapers (API-based, actually work without anti-bot issues)
+// Supplementary scrapers (API-based, work without anti-bot issues)
 const RemoteOKScraper = require('./remoteok');
-const WeWorkRemotelyScraper = require('./weworkremotely');
-const DiceScraper = require('./dice');
-const UnstopScraper = require('./unstop');
+const HimalayasScraper = require('./himalayas');
+const ArbeitnowScraper = require('./arbeitnow');
+const CutshortScraper = require('./cutshort');
+const CareersScraper = require('./careers');
 
 // These are supplementary - only used if their platforms are enabled
 const supplementaryScrapers = {
   remoteok: new RemoteOKScraper(),
-  weworkremotely: new WeWorkRemotelyScraper(),
-  dice: new DiceScraper(),
-  unstop: new UnstopScraper(),
+  himalayas: new HimalayasScraper(),
+  arbeitnow: new ArbeitnowScraper(),
+  cutshort: new CutshortScraper(),
+  careers: new CareersScraper(),
 };
 
 /**
@@ -61,10 +63,9 @@ function generateSearchQueries(resumeData) {
  * Run all scrapers and collect jobs.
  *
  * Strategy:
- * 1. PRIMARY: ts-jobspy handles LinkedIn, Indeed, Glassdoor, Google Jobs, Naukri
- *    (it manages anti-bot, proxies, browser emulation internally)
- * 2. SUPPLEMENTARY: API-based scrapers for RemoteOK, WeWorkRemotely, Dice, Unstop
- *    (these use public APIs/RSS feeds, no anti-bot issues)
+ * 1. PRIMARY: ts-jobspy handles LinkedIn, Indeed, Google Jobs
+ * 2. SUPPLEMENTARY: API-based scrapers (RemoteOK, Himalayas, Arbeitnow, Cutshort)
+ * 3. CAREERS: Company career pages via Greenhouse/Lever/TheMuse APIs (50+ companies)
  */
 async function scrapeAll(resumeData) {
   const searchQuery = generateSearchQueries(resumeData);
@@ -77,8 +78,7 @@ async function scrapeAll(resumeData) {
   logger.info(`Locations: ${location}`);
 
   // ── Step 1: Primary scraping via ts-jobspy ──────────────────
-  // Handles: LinkedIn, Indeed, Glassdoor, Google Jobs, Naukri
-  logger.info('Running primary scrapers (ts-jobspy: LinkedIn, Indeed, Glassdoor, Google, Naukri)...');
+  logger.info('Running primary scrapers (ts-jobspy: LinkedIn, Indeed, Google Jobs)...');
   try {
     const jobspyResult = await scrapeWithJobSpy(searchQuery, location);
     allJobs.push(...jobspyResult.jobs);

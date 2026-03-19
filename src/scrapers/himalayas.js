@@ -21,18 +21,18 @@ class HimalayasScraper extends BaseScraper {
         const listings = response.data?.jobs || response.data || [];
 
         for (const item of listings) {
-          if (!isWithinWindow(item.pubDate || item.created_at || item.publishedAt)) continue;
+          if (!isWithinWindow(item.pubDate)) continue;
 
           jobs.push(this.buildJob({
             title: item.title,
-            company: item.companyName || item.company?.name || '',
-            location: item.location || 'Remote',
-            salary: item.salary || (item.minSalary && item.maxSalary
-              ? `$${item.minSalary}-$${item.maxSalary}` : ''),
-            skillsRequired: item.tags || item.skills || [],
-            jobDescription: (item.description || '').replace(/<[^>]*>/g, ''),
-            applyUrl: item.url || item.applicationUrl || `https://himalayas.app/jobs/${item.slug || item.id}`,
-            postedDate: item.pubDate || item.created_at || item.publishedAt,
+            company: item.companyName || '',
+            location: item.locationRestrictions?.join(', ') || 'Remote',
+            salary: item.minSalary && item.maxSalary
+              ? `${item.currency || '$'}${item.minSalary}-${item.maxSalary}` : '',
+            skillsRequired: item.categories || [],
+            jobDescription: (item.description || item.excerpt || '').replace(/<[^>]*>/g, ''),
+            applyUrl: item.applicationLink || `https://himalayas.app/jobs/${item.guid || ''}`,
+            postedDate: item.pubDate,
           }));
         }
       } catch (error) {

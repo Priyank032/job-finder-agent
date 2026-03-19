@@ -61,16 +61,16 @@ const config = {
     // ── Primary (ts-jobspy) ─────────────
     linkedin: true,
     indeed: true,
-    glassdoor: true,
-    google: true,    // Google Jobs
-    naukri: true,
+    glassdoor: false, // blocked (403 from server IPs)
+    google: true,     // Google Jobs - aggregates from career pages
+    naukri: false,    // blocked (406) - Naukri jobs come via Google Jobs
 
     // ── Supplementary (API/RSS) ─────────
     remoteok: true,
-    weworkremotely: true,
-    dice: false,    // blocked (400 errors), enable if you have proxy
-    unstop: false,  // blocked (404 errors), enable if fixed
-
+    himalayas: true,    // public JSON API - remote jobs
+    arbeitnow: true,    // public JSON API - remote jobs
+    cutshort: true,     // India-focused startup jobs
+    careers: true,      // company career pages via Greenhouse/Lever/TheMuse APIs
   },
 
   // Scraping settings

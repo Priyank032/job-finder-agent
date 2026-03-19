@@ -27,7 +27,13 @@ function getWindowHours() {
 /** Check if a job's posted date falls within the fetch window */
 function isWithinWindow(postedDate) {
   if (!postedDate) return true; // include if unknown
-  const posted = new Date(postedDate);
+  let ts = postedDate;
+  // Handle Unix timestamps in seconds (< year 2100 in ms = ~4.1e12)
+  if (typeof ts === 'number' && ts < 4102444800) {
+    ts = ts * 1000;
+  }
+  const posted = new Date(ts);
+  if (isNaN(posted.getTime())) return true; // include if unparseable
   const cutoff = getDateCutoff();
   return posted >= cutoff;
 }

@@ -31,7 +31,7 @@ async function scrapeWithJobSpy(searchQuery, location) {
     return { jobs: [], platformResults: {} };
   }
 
-  const queries = searchQuery.split(',').map(q => q.trim()).slice(0, 5); // limit queries
+  const queries = searchQuery.split(',').map(q => q.trim()).slice(0, 8);
   const hoursOld = isMonday() ? 72 : 24;
   const allJobs = [];
   const platformResults = {};
@@ -45,7 +45,7 @@ async function scrapeWithJobSpy(searchQuery, location) {
         siteNames: enabledSites,
         searchTerm: query,
         location: location || 'India',
-        resultsWanted: 15, // per site per query
+        resultsWanted: 25, // per site per query
         hoursOld,
         countryIndeed: Country.INDIA,
         isRemote: location?.toLowerCase().includes('remote') || false,
@@ -54,6 +54,8 @@ async function scrapeWithJobSpy(searchQuery, location) {
       if (results && results.length > 0) {
         for (const job of results) {
           const platform = job.site || 'unknown';
+          // Skip results from disabled platforms (ts-jobspy returns all sites)
+          if (config.platforms[platform] === false) continue;
           const normalized = normalizeJob(job, platform);
           if (normalized) {
             allJobs.push(normalized);
