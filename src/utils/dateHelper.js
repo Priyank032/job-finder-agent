@@ -14,14 +14,16 @@ function isSunday() {
 
 /** Get the cutoff date for job filtering (adds 2h buffer to avoid edge cases) */
 function getDateCutoff() {
+  const config = require('../../config');
   const now = new Date();
-  const hours = (isMonday() ? 72 : 24) + 2; // 2h buffer
+  const hours = (isMonday() ? config.mondayWindowHours : config.normalWindowHours) + 2; // 2h buffer
   return new Date(now.getTime() - hours * 60 * 60 * 1000);
 }
 
 /** Get window hours based on current day */
 function getWindowHours() {
-  return isMonday() ? 72 : 24;
+  const config = require('../../config');
+  return isMonday() ? config.mondayWindowHours : config.normalWindowHours;
 }
 
 /** Check if a job's posted date falls within the fetch window */

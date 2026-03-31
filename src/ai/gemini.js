@@ -19,10 +19,18 @@ async function matchJob(resumeData, job) {
 
   const skills = (resumeData.skills || []).join(', ');
   const resumeSummary = (resumeData.summary || '').substring(0, 400);
+  const expYears = config.experienceYears || 3;
+  const desc = (job.jobDescription || '').substring(0, 1000);
+  const expMatch = desc.match(/(\d+)\+?\s*years?\s*(of\s*)?(experience|exp)/i);
+  const requiredExp = expMatch ? parseInt(expMatch[1]) : null;
+  const expNote = requiredExp && requiredExp > expYears + 1
+    ? `NOTE: This job requires ${requiredExp}+ years but candidate only has ${expYears} years — significantly reduce match_score (subtract 20-30 points).`
+    : `Candidate has ${expYears} years of experience.`;
 
   const prompt = `Job matching AI. Score how well this candidate fits the job.
 
 CANDIDATE:
+Experience: ${expYears} years
 Skills: ${skills}
 Summary: ${resumeSummary}
 
@@ -31,7 +39,10 @@ Title: ${job.title}
 Company: ${job.company}
 Location: ${job.location}
 Required: ${(job.skillsRequired || []).join(', ') || 'Not specified'}
-Description: ${(job.jobDescription || '').substring(0, 1000)}
+Description: ${desc}
+
+SCORING RULE: ${expNote}
+Also reduce score for titles like Staff/Principal/VP/Director that typically need 7+ years.
 
 Respond ONLY with valid JSON:
 {

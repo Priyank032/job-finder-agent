@@ -14,12 +14,21 @@ const config = {
 
   // AI matching
   minMatchScore: parseInt(process.env.MIN_MATCH_SCORE) || 60,
-  maxJobsPerDay: parseInt(process.env.MAX_JOBS_PER_DAY) || 30,
+  maxJobsPerDay: parseInt(process.env.MAX_JOBS_PER_DAY) || 55,
+  maxToProcess: parseInt(process.env.MAX_TO_PROCESS) || 150, // max jobs sent to AI matching
 
   // Scheduler
   scheduleCron: '0 7 * * 1-6', // 7 AM Monday-Saturday
-  mondayWindowHours: 72,
+  mondayWindowHours: 48, // last 2 days on Monday (Sat + Sun)
   normalWindowHours: 24,
+
+  // Preferred Indian cities (checked against job location)
+  preferredIndiaCities: [
+    'india', 'delhi', 'new delhi', 'gurugram', 'gurgaon', 'noida',
+    'greater noida', 'faridabad', 'indore', 'jaipur', 'bangalore',
+    'bengaluru', 'pune', 'hyderabad', 'ahmedabad', 'mumbai', 'chennai',
+    'kolkata', 'chandigarh', 'lucknow', 'nagpur', 'surat', 'kochi',
+  ],
 
   // MongoDB
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/job-finder-agent',

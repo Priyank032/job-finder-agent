@@ -45,7 +45,7 @@ async function scrapeWithJobSpy(searchQuery, location) {
         siteNames: enabledSites,
         searchTerm: query,
         location: location || 'India',
-        resultsWanted: 25, // per site per query
+        resultsWanted: 40, // per site per query
         hoursOld,
         countryIndeed: Country.INDIA,
         isRemote: location?.toLowerCase().includes('remote') || false,

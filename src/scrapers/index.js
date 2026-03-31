@@ -2,6 +2,39 @@ const config = require('../../config');
 const logger = require('../utils/logger');
 const { scrapeWithJobSpy } = require('./jobspy');
 
+// Platforms that are 100% remote — location listed is just company HQ
+const REMOTE_ONLY_PLATFORMS = new Set(['remoteok', 'himalayas', 'arbeitnow']);
+
+// Job titles that indicate levels clearly beyond 3 years of experience
+const OVERLY_SENIOR_REGEX = /\b(staff engineer|staff software|principal engineer|principal software|distinguished engineer|vp of|vice president|director of engineering|engineering director|head of engineering|engineering manager|senior manager|senior director|cto|chief technology)\b/i;
+
+/**
+ * Returns true if the job location is acceptable:
+ * - Remote-only platforms: always OK
+ * - "remote" or "work from home" anywhere in location string: OK
+ * - India or a preferred Indian city in location: OK
+ * - Location unknown/empty: include (benefit of the doubt)
+ * - Onsite outside India: rejected
+ */
+function isLocationOk(job) {
+  if (REMOTE_ONLY_PLATFORMS.has(job.platform)) return true;
+
+  const loc = (job.location || '').toLowerCase();
+
+  if (!loc || loc.length < 2) return true; // unknown — include
+  if (loc.includes('remote') || loc.includes('work from home') || loc.includes('wfh')) return true;
+
+  return config.preferredIndiaCities.some(city => loc.includes(city));
+}
+
+/**
+ * Returns true if the job seniority is reachable for a 3-year candidate.
+ * Drops staff/principal/VP/director/manager titles before AI matching (saves tokens + noise).
+ */
+function isSeniorityOk(job) {
+  return !OVERLY_SENIOR_REGEX.test(job.title || '');
+}
+
 // Supplementary scrapers (API-based, work without anti-bot issues)
 const RemoteOKScraper = require('./remoteok');
 const HimalayasScraper = require('./himalayas');
@@ -119,7 +152,30 @@ async function scrapeAll(resumeData) {
 
   logger.info(`Total jobs scraped: ${allJobs.length} from ${Object.keys(platformResults).length} platforms`);
 
-  return { jobs: allJobs, platformResults, errors };
+  // ── Post-scrape filters ──────────────────────────────
+  const beforeFilter = allJobs.length;
+
+  const locationFiltered = allJobs.filter(job => {
+    if (!isLocationOk(job)) {
+      logger.debug(`Location filtered: "${job.title}" @ ${job.company} (${job.location})`);
+      return false;
+    }
+    return true;
+  });
+
+  const seniorityFiltered = locationFiltered.filter(job => {
+    if (!isSeniorityOk(job)) {
+      logger.debug(`Seniority filtered: "${job.title}" @ ${job.company}`);
+      return false;
+    }
+    return true;
+  });
+
+  const locationDropped = beforeFilter - locationFiltered.length;
+  const seniorityDropped = locationFiltered.length - seniorityFiltered.length;
+  logger.info(`Filters applied: -${locationDropped} non-India/non-remote, -${seniorityDropped} overly senior → ${seniorityFiltered.length} jobs remaining`);
+
+  return { jobs: seniorityFiltered, platformResults, errors };
 }
 
 module.exports = { scrapeAll, generateSearchQueries };

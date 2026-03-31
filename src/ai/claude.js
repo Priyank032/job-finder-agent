@@ -34,10 +34,20 @@ function buildPrompt(resumeData, job) {
   // Keep prompt compact to reduce token usage and avoid rate limits
   const resumeSummary = (resumeData.summary || '').substring(0, 400);
   const skills = (resumeData.skills || []).join(', ');
+  const expYears = config.experienceYears || 3;
+
+  // Extract required experience from description for scoring guidance
+  const desc = (job.jobDescription || '').substring(0, 1000);
+  const expMatch = desc.match(/(\d+)\+?\s*years?\s*(of\s*)?(experience|exp)/i);
+  const requiredExp = expMatch ? parseInt(expMatch[1]) : null;
+  const expNote = requiredExp && requiredExp > expYears + 1
+    ? `NOTE: This job requires ${requiredExp}+ years but candidate only has ${expYears} years — significantly reduce match_score (subtract 20-30 points) for this experience gap.`
+    : `Candidate has ${expYears} years of experience.`;
 
   return `Job matching AI. Score how well this candidate fits the job.
 
 CANDIDATE:
+Experience: ${expYears} years
 Skills: ${skills}
 Summary: ${resumeSummary}
 
@@ -46,7 +56,10 @@ Title: ${job.title}
 Company: ${job.company}
 Location: ${job.location}
 Required: ${(job.skillsRequired || []).join(', ') || 'Not specified'}
-Description: ${(job.jobDescription || '').substring(0, 1000)}
+Description: ${desc}
+
+SCORING RULE: ${expNote}
+Also reduce score for titles like Staff/Principal/VP/Director that typically need 7+ years.
 
 Respond ONLY with valid JSON:
 {"match_score":<0-100>,"match_reason":"<2 sentences>","missing_skills":["<skill>"],"strengths":["<strength>"],"recommended":<bool>,"job_type_fit":"<role>","cover_letter_snippet":"<2-line opener>"}`;

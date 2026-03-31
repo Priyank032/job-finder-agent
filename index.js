@@ -191,8 +191,8 @@ async function runAgent() {
     return;
   }
 
-  // Step 3: AI Matching (cap at 100 to stay within Lambda timeout)
-  const maxToMatch = 100;
+  // Step 3: AI Matching (cap to stay within Lambda timeout)
+  const maxToMatch = config.maxToProcess || 150;
   const jobsToMatch = uniqueJobs.slice(0, maxToMatch);
   if (uniqueJobs.length > maxToMatch) {
     logger.info(`Capping AI matching at ${maxToMatch} of ${uniqueJobs.length} unique jobs`);
