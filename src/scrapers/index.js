@@ -5,13 +5,32 @@ const { scrapeWithJobSpy } = require('./jobspy');
 // Platforms that are 100% remote — location listed is just company HQ
 const REMOTE_ONLY_PLATFORMS = new Set(['remoteok', 'himalayas', 'arbeitnow']);
 
+// Non-India country/region identifiers — if present alongside "remote", the job is geo-restricted
+const NON_INDIA_GEO = [
+  'usa', 'us-remote', 'united states', '- usa', '- us', 'america',
+  'canada', 'can-remote', 'toronto', 'vancouver', 'british columbia', 'ontario',
+  'uk', 'united kingdom', 'london', 'manchester',
+  'germany', 'berlin', 'munich', 'france', 'paris',
+  'australia', 'sydney', 'melbourne',
+  'netherlands', 'amsterdam', 'denmark', 'copenhagen',
+  'sweden', 'norway', 'finland', 'poland', 'spain', 'italy',
+  'brazil', 'argentina', 'mexico', 'singapore', 'japan',
+  '- eu', 'europe only', 'emea', 'latam',
+  'new york', 'san francisco', 'seattle', 'chicago', 'boston',
+  'remote - us', 'remote - ca', 'remote in us', 'remote in canada',
+];
+
 // Job titles that indicate levels clearly beyond 3 years of experience
 const OVERLY_SENIOR_REGEX = /\b(staff engineer|staff software|principal engineer|principal software|distinguished engineer|vp of|vice president|director of engineering|engineering director|head of engineering|engineering manager|senior manager|senior director|cto|chief technology)\b/i;
+
+// Experience requirement pattern in job description
+const EXP_REQ_REGEX = /(\d+)\s*\+?\s*years?\s*(of\s*)?(experience|exp|work)/i;
 
 /**
  * Returns true if the job location is acceptable:
  * - Remote-only platforms: always OK
- * - "remote" or "work from home" anywhere in location string: OK
+ * - "remote" in location AND no non-India geo restriction: OK (worldwide remote)
+ * - "remote" + non-India geo (e.g. "Remote - USA", "US-Remote"): REJECTED
  * - India or a preferred Indian city in location: OK
  * - Location unknown/empty: include (benefit of the doubt)
  * - Onsite outside India: rejected
@@ -22,17 +41,42 @@ function isLocationOk(job) {
   const loc = (job.location || '').toLowerCase();
 
   if (!loc || loc.length < 2) return true; // unknown — include
-  if (loc.includes('remote') || loc.includes('work from home') || loc.includes('wfh')) return true;
 
-  return config.preferredIndiaCities.some(city => loc.includes(city));
+  // Check if location is India-based first
+  if (config.preferredIndiaCities.some(city => loc.includes(city))) return true;
+
+  // Check for remote — but only if NOT geo-restricted to outside India
+  if (loc.includes('remote') || loc.includes('work from home') || loc.includes('wfh')) {
+    const isGeoRestricted = NON_INDIA_GEO.some(geo => loc.includes(geo));
+    return !isGeoRestricted; // worldwide remote = OK, US-remote = rejected
+  }
+
+  return false;
 }
 
 /**
  * Returns true if the job seniority is reachable for a 3-year candidate.
- * Drops staff/principal/VP/director/manager titles before AI matching (saves tokens + noise).
+ * Drops staff/principal/VP/director/manager titles before AI matching.
  */
 function isSeniorityOk(job) {
   return !OVERLY_SENIOR_REGEX.test(job.title || '');
+}
+
+/**
+ * Hard experience filter: drop jobs that explicitly require more than
+ * candidate's experience + 1 year (buffer for "3-5 years" ranges).
+ * Only fires when a clear number is found in the description.
+ */
+function isExperienceOk(job) {
+  const candidateYears = config.experienceYears || 3;
+  const maxAllowed = candidateYears + 1; // allow up to 4yr for a 3yr candidate
+
+  const desc = (job.jobDescription || '') + ' ' + (job.title || '');
+  const match = desc.match(EXP_REQ_REGEX);
+  if (!match) return true; // no clear requirement found — include
+
+  const required = parseInt(match[1]);
+  return required <= maxAllowed;
 }
 
 // Supplementary scrapers (API-based, work without anti-bot issues)
@@ -171,11 +215,20 @@ async function scrapeAll(resumeData) {
     return true;
   });
 
+  const experienceFiltered = seniorityFiltered.filter(job => {
+    if (!isExperienceOk(job)) {
+      logger.debug(`Experience filtered: "${job.title}" @ ${job.company} (requires more than ${(config.experienceYears || 3) + 1} yrs)`);
+      return false;
+    }
+    return true;
+  });
+
   const locationDropped = beforeFilter - locationFiltered.length;
   const seniorityDropped = locationFiltered.length - seniorityFiltered.length;
-  logger.info(`Filters applied: -${locationDropped} non-India/non-remote, -${seniorityDropped} overly senior → ${seniorityFiltered.length} jobs remaining`);
+  const expDropped = seniorityFiltered.length - experienceFiltered.length;
+  logger.info(`Filters: -${locationDropped} geo-restricted, -${seniorityDropped} overly senior, -${expDropped} experience too high → ${experienceFiltered.length} jobs remaining`);
 
-  return { jobs: seniorityFiltered, platformResults, errors };
+  return { jobs: experienceFiltered, platformResults, errors };
 }
 
 module.exports = { scrapeAll, generateSearchQueries };
