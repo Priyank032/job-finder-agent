@@ -26,6 +26,10 @@ provider:
     MIN_MATCH_SCORE: ${env:MIN_MATCH_SCORE, '60'}
     MAX_JOBS_PER_DAY: ${env:MAX_JOBS_PER_DAY, '55'}
     MAX_TO_PROCESS: ${env:MAX_TO_PROCESS, '150'}
+    # ── AI/LLM job -> Google Sheet pipeline (independent job) ──
+    APIFY_TOKEN: ${env:APIFY_TOKEN, ''}
+    GOOGLE_SA_JSON: ${env:GOOGLE_SA_JSON, ''}
+    JOB_SHEET_ID: ${env:JOB_SHEET_ID, '1Pht8ULtIbQQiSmi7oizuGC3MYMU8WV79chBYoEK5D-U'}
     NODE_ENV: production
 
 functions:
@@ -50,6 +54,22 @@ functions:
     events:
       - http:
           path: /run
+          method: post
+
+  # ── AI/LLM job -> Google Sheet pipeline (independent; does not touch email flow) ──
+  sheetDailyRun:
+    handler: lambdaApify.sheetDailyRun
+    events:
+      - schedule:
+          rate: cron(30 3 * * ? *)
+          enabled: true
+          description: "Daily AI/LLM jobs -> Google Sheet at 9 AM IST"
+
+  sheetManualRun:
+    handler: lambdaApify.sheetManualRun
+    events:
+      - http:
+          path: /run-sheet
           method: post
 
 package:

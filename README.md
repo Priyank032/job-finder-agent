@@ -101,6 +101,47 @@ cp .env.example .env
 2. Get your API key (free tier: 1000 credits)
 3. Add to `.env` as `SCRAPINGBEE_API_KEY`
 
+## AI/LLM Job → Google Sheet Pipeline (independent daily job)
+
+A **separate, self-contained** daily job (added alongside the email agent, does
+not touch it) that scrapes mid-level AI/LLM roles via an Apify Actor, filters
+them, and appends new matches to a Google Sheet. No MongoDB, no email — the
+**Sheet itself is the dedup source of truth** (deduped by `Job ID` column).
+
+- Code: [`src/apify/sheetPipeline.js`](src/apify/sheetPipeline.js) (logic) and
+  [`lambdaApify.js`](lambdaApify.js) (Lambda handlers).
+- Schedule: daily **09:00 IST** (`cron(30 3 * * ? *)` UTC) via the `sheetDailyRun`
+  function in `serverless.yml`.
+- Manual trigger: `POST /run-sheet`, or locally `npm run sheet-run`.
+- Filter (Option B): drops match score `< 40`, over-level titles
+  (lead/principal/staff/architect/manager/director/vp/head of/vice president),
+  and any description whose **minimum** years-required is `>= 6`.
+
+### New environment variables
+
+| Var | Purpose |
+|-----|---------|
+| `APIFY_TOKEN` | Apify API token (Console → Settings → Integrations) |
+| `GOOGLE_SA_JSON` | Service-account key **JSON on one line** (used in Lambda) |
+| `GOOGLE_SA_JSON_PATH` | *(local dev alt)* path to the key file; `GOOGLE_SA_JSON` wins if both set |
+| `JOB_SHEET_ID` | Target spreadsheet ID (defaults to the configured sheet) |
+
+### One-time Google setup
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create (or pick)
+   a project and **enable the Google Sheets API**.
+2. Create a **Service Account** → **Keys** → **Add Key → JSON**. Download the key.
+3. Open the target Google Sheet and **Share it with the service account's
+   `client_email` as an Editor**. (This is what lets the job write to it.)
+4. Add the credentials to your secrets:
+   - **Local**: set `GOOGLE_SA_JSON_PATH=./secrets/sheet-sa.json` (git-ignored), or
+     paste the JSON on one line into `GOOGLE_SA_JSON`.
+   - **Lambda**: paste the whole key JSON (single line) into `GOOGLE_SA_JSON` in
+     `.env`; `serverless deploy` ships it as a Lambda env var like the other secrets.
+
+The header row is created automatically if missing:
+`Match % | Job Title | Company | Location | Experience | Posted | Salary | Matched Skills | Apply Link | Job ID | Date Added`.
+
 ## First-Time Setup
 
 ```bash
