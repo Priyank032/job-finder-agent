@@ -110,8 +110,8 @@ them, and appends new matches to a Google Sheet. No MongoDB, no email — the
 
 - Code: [`src/apify/sheetPipeline.js`](src/apify/sheetPipeline.js) (logic) and
   [`lambdaApify.js`](lambdaApify.js) (Lambda handlers).
-- Schedule: daily **09:00 IST** (`cron(30 3 * * ? *)` UTC) via the `sheetDailyRun`
-  function in `serverless.yml`.
+- Schedule: **09:00 IST, Mon–Sat** (`cron(30 3 ? * MON-SAT *)` UTC) via the
+  `sheetDailyRun` function in `serverless.yml`. No Sunday run, matching the email job.
 - Manual trigger: `POST /run-sheet`, or locally `npm run sheet-run`.
 - Filter (Option B): drops match score `< 40`, over-level titles
   (lead/principal/staff/architect/manager/director/vp/head of/vice president),
