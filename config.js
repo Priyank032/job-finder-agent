@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const config = {
   // Job search parameters
-  targetRoles: (process.env.JOB_ROLES || 'Software Engineer, Full Stack Developer')
+  targetRoles: (process.env.JOB_ROLES || 'AI Engineer, LLM Engineer, GenAI Engineer, Backend Developer, Software Engineer, Full Stack Developer')
     .split(',')
     .map(r => r.trim()),
 

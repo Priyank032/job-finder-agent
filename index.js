@@ -7,6 +7,7 @@ const { parseResume, loadResumeData, hasResumeData } = require('./src/resume/par
 const { scrapeAll } = require('./src/scrapers');
 const { matchJobs } = require('./src/ai/matcher');
 const { deduplicateJobs } = require('./src/utils/deduplicator');
+const { isTitleRejected } = require('./src/utils/roleFilter');
 const { sendJobReport, sendTestEmail, sendWeeklySummary } = require('./src/notifications/email');
 const { sendWhatsAppNotification, sendTestWhatsApp } = require('./src/notifications/whatsapp');
 const { startScheduler } = require('./src/scheduler/cron');
@@ -191,11 +192,31 @@ async function runAgent() {
     return;
   }
 
+  // Step 2.5: Relevance pre-filter (before AI, saves cost + kills off-lane roles).
+  // Drops over-level titles (lead/principal/...) and wrong-discipline roles
+  // (ML/data/Java/DevOps/QA/intern/...) so they never reach AI scoring or email.
+  const relevantJobs = uniqueJobs.filter(j => !isTitleRejected(j.title));
+  const rejectedByTitle = uniqueJobs.length - relevantJobs.length;
+  if (rejectedByTitle > 0) {
+    logger.info(`Relevance filter: dropped ${rejectedByTitle} off-lane/over-level titles (${relevantJobs.length} remain)`);
+  }
+
+  if (relevantJobs.length === 0) {
+    logger.info('No relevant jobs after title filter. Nothing to match.');
+    await db.logRun({
+      runDate: new Date(),
+      platformsScraped: Object.keys(platformResults),
+      jobsFound: rawJobs.length, jobsMatched: 0, jobsSent: 0,
+      runErrors: errors, durationSeconds: (Date.now() - startTime) / 1000,
+    });
+    return;
+  }
+
   // Step 3: AI Matching (cap to stay within Lambda timeout)
   const maxToMatch = config.maxToProcess || 150;
-  const jobsToMatch = uniqueJobs.slice(0, maxToMatch);
-  if (uniqueJobs.length > maxToMatch) {
-    logger.info(`Capping AI matching at ${maxToMatch} of ${uniqueJobs.length} unique jobs`);
+  const jobsToMatch = relevantJobs.slice(0, maxToMatch);
+  if (relevantJobs.length > maxToMatch) {
+    logger.info(`Capping AI matching at ${maxToMatch} of ${relevantJobs.length} relevant jobs`);
   }
   logger.info('Step 3/5: AI matching jobs to resume...');
   const matchedJobs = await matchJobs(resumeData, jobsToMatch);

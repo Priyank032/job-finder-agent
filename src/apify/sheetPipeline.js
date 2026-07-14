@@ -34,13 +34,11 @@ const logger = require('../utils/logger');
 const SHEET_ID = process.env.JOB_SHEET_ID || '1Pht8ULtIbQQiSmi7oizuGC3MYMU8WV79chBYoEK5D-U';
 const ACTOR_ID = 'cheap_scraper/linkedin-job-scraper';
 
-const MAX_YEARS = 6;   // drop jobs whose MINIMUM required experience is >= this
+const MAX_YEARS = 4;   // drop jobs whose MINIMUM required experience is >= this (keep < 4 yrs)
 const MIN_MATCH = 40;  // drop jobs whose resume-match score is below this (0-100)
 
-// Titles unambiguously above a mid-level IC role. "Senior" is intentionally
-// left OUT - in India it's often applied to 4-5yr roles, and the years-parse
-// will catch the genuinely-senior ones.
-const TITLE_BLOCK = /\b(lead|principal|staff|architect|manager|director|vp|head\s+of|vice\s+president)\b/i;
+// Over-level + off-lane title filtering is shared with the email agent.
+const { isTitleRejected } = require('../utils/roleFilter');
 
 const SCRAPER_INPUT = {
   keyword: ['AI Engineer', 'LLM Engineer', 'Backend Developer'],
@@ -106,13 +104,14 @@ function requiredYears(text) {
   return mins.length ? Math.min(...mins) : null;
 }
 
-/** True if the job looks mid-level (< MAX_YEARS) and not an over-level title. */
+/** True if the job fits: right discipline, mid-level, not over-level title. */
 function isMidLevel(job) {
   const title = job.jobTitle || '';
-  if (TITLE_BLOCK.test(title)) return false;
+  // Over-level (lead/principal/...) or wrong discipline (ML/data/java/devops/...).
+  if (isTitleRejected(title)) return false;
 
   const yrs = requiredYears(job.jobDescription || '');
-  if (yrs !== null && yrs >= MAX_YEARS) return false; // e.g. "7 to 8 years" -> 7 -> dropped
+  if (yrs !== null && yrs >= MAX_YEARS) return false; // e.g. "4 to 6 years" -> 4 -> dropped
 
   return true;
 }
