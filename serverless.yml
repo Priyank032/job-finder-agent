@@ -61,9 +61,9 @@ functions:
     handler: lambdaApify.sheetDailyRun
     events:
       - schedule:
-          rate: cron(30 15 ? * MON-SAT *)
+          rate: cron(30 4 ? * MON-SAT *)
           enabled: true
-          description: "AI/LLM jobs -> Google Sheet at 9 PM IST (Mon-Sat, no Sunday)"
+          description: "AI/LLM jobs -> Google Sheet at 10 AM IST (Mon-Sat, no Sunday)"
 
   sheetManualRun:
     handler: lambdaApify.sheetManualRun
