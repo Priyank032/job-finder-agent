@@ -30,10 +30,47 @@ const logger = require('../utils/logger');
 const ACTOR_ID = 'cheap_scraper/linkedin-job-scraper';
 
 const MIN_MATCH = 0;   // no keyword-score floor - keep everything the search returns
-                       // (Gwalior is a small market; don't over-filter)
 
-// Only keep jobs located in Gwalior, or remote / work-from-home postings.
-const LOCATION_ALLOW = /\b(gwalior|remote|work\s*from\s*home|wfh|anywhere)\b/i;
+// Remote-ness is guaranteed by the search input (workType:['remote']), so we do
+// NOT filter on location - the actor's output has no reliable remote marker.
+// Instead we filter on the TITLE so only Nancy's roles land: HR / Admin /
+// Operations / Data-entry-Back-office. Everything else (QA, engineering, generic
+// AI-training gigs, sales, marketing, etc.) is dropped.
+const ROLE_ALLOW = new RegExp(
+  [
+    // HR / recruitment
+    '\\bhr\\b', 'human\\s*resources?', '\\brecruit', 'talent\\s*acquisition',
+    '\\bpayroll\\b', '\\bonboard', '\\bhris\\b', '\\bhr\\s*ops',
+    // Admin / office
+    '\\badmin', 'office\\s*(executive|coordinator|assistant|manager|administrator)',
+    'executive\\s*assistant', 'front\\s*office', 'receptionist', 'personal\\s*assistant',
+    'office\\s*boy', 'clerk',
+    // Operations
+    '\\boperations?\\b', '\\bops\\b', 'process\\s*(associate|executive)', 'coordinator',
+    // Data entry / back office / computer operator
+    'data\\s*entry', 'computer\\s*operator', 'back\\s*office', '\\bmis\\b',
+    '\\btyping\\b', 'data\\s*operator', 'documentation',
+  ].join('|'),
+  'i'
+);
+
+// Obvious noise to drop even if a token above accidentally matches.
+const ROLE_BLOCK = new RegExp(
+  [
+    '\\bqa\\b', '\\btest', '\\bsdet\\b', '\\bengineer\\b', 'developer', '\\bdevops\\b',
+    'software', 'programmer', '\\bai\\b', 'machine\\s*learning', 'data\\s*scien',
+    'sales', 'marketing', 'designer', 'architect', 'nurse', 'driver', 'teacher',
+    'train\\s*ai', 'annotation', 'evaluation\\s*engineer',
+  ].join('|'),
+  'i'
+);
+
+/** True if the job title is one of Nancy's roles (HR/Admin/Ops/Data-entry). */
+function isNancyRole(job) {
+  const title = job.jobTitle || '';
+  if (ROLE_BLOCK.test(title)) return false;
+  return ROLE_ALLOW.test(title);
+}
 
 const SCRAPER_INPUT = {
   keyword: [
@@ -44,12 +81,12 @@ const SCRAPER_INPUT = {
     // Admin / Office
     'Office Administrator', 'Admin Executive', 'Operations Executive',
   ],
-  // Gwalior-focused so the 150-item budget isn't wasted on nationwide jobs.
-  // "India" as a location for remote roles is handled via the Remote entry.
-  locations: ['Gwalior, India', 'Gwalior, Madhya Pradesh, India'],
-  workType: ['on-site', 'hybrid', 'remote'],
+  // Nationwide search, remote-only work type - remote HR/admin/data-entry roles
+  // across India that Nancy can do from Gwalior.
+  locations: ['India'],
+  workType: ['remote'],
   experienceLevel: ['entry-level', 'associate', 'mid-senior'],
-  publishedAt: 'r604800',   // last 7 days - Gwalior posts less often than metros
+  publishedAt: 'r604800',   // last 7 days
   saveOnlyUniqueItems: true,
   enrichCompanyData: false,
   maxItems: 150,
@@ -68,11 +105,6 @@ const HEADER = [
   'Posted', 'Salary (est.)', 'Matched Skills', 'Apply Link', 'Job ID', 'Date Added',
 ];
 
-/** True if the job is in Gwalior or is remote/WFH. */
-function isGwaliorOrRemote(job) {
-  const loc = `${job.location || ''} ${job.workType || ''}`;
-  return LOCATION_ALLOW.test(loc);
-}
 
 // --------------------------------------------------------------------------- //
 // Apify
@@ -182,12 +214,13 @@ async function runNancyPipeline() {
   const startTime = Date.now();
   const items = await runScraper();
 
-  // Filter: Gwalior-or-remote, plus an optional score floor (0 by default).
+  // Filter: keep only Nancy's roles (HR/Admin/Ops/Data-entry). Remote is already
+  // guaranteed by the search input. Optional score floor (0 by default).
   const filtered = items.filter(
-    (j) => (j.keywordMatchScorePercentage || 0) >= MIN_MATCH && isGwaliorOrRemote(j)
+    (j) => (j.keywordMatchScorePercentage || 0) >= MIN_MATCH && isNancyRole(j)
   );
   const dropped = items.length - filtered.length;
-  logger.info(`[nancy] Kept ${filtered.length} after filter (dropped ${dropped}: not Gwalior/remote).`);
+  logger.info(`[nancy] Kept ${filtered.length} after filter (dropped ${dropped}: off-role, e.g. QA/engineering).`);
 
   const ws = await openSheet();
   const seen = await existingJobIds(ws);
@@ -219,7 +252,7 @@ async function runNancyPipeline() {
   return { scraped: items.length, kept: filtered.length, appended: newRows.length };
 }
 
-module.exports = { runNancyPipeline, isGwaliorOrRemote, toRow, HEADER };
+module.exports = { runNancyPipeline, isNancyRole, toRow, HEADER };
 
 // Run directly: `node src/apify/nancyPipeline.js`  (or `npm run nancy-run`)
 if (require.main === module) {
