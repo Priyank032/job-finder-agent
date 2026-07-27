@@ -10,7 +10,8 @@
     "test-email": "node index.js --test-email",
     "test-whatsapp": "node index.js --test-whatsapp",
     "dev": "nodemon index.js --run-now",
-    "sheet-run": "node src/apify/sheetPipeline.js"
+    "sheet-run": "node src/apify/sheetPipeline.js",
+    "nancy-run": "node src/apify/nancyPipeline.js"
   },
   "keywords": [
     "job-finder",
