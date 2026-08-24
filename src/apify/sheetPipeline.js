@@ -116,6 +116,40 @@ function isMidLevel(job) {
   return true;
 }
 
+/**
+ * True if the job applies on the company's own site (career website), not
+ * LinkedIn Easy Apply. The actor sets applyType = "EXTERNAL" | "EASY_APPLY".
+ * Careers actor rows have no applyType -> treated as external (they're already
+ * company-career-page jobs).
+ */
+function isExternalApply(job) {
+  const t = (job.applyType || 'EXTERNAL').toUpperCase();
+  return t !== 'EASY_APPLY';
+}
+
+/**
+ * Approximate age in hours parsed from a relative "postedTime" string
+ * ("Just now", "30 minutes ago", "2 hours ago", "3 days ago", "1 week ago").
+ * Falls back to publishedAt. Lower = more recent. Unknown -> Infinity (sinks).
+ */
+function postedAgeHours(job) {
+  const s = String(job.postedTime || '').toLowerCase().trim();
+  if (s) {
+    if (/just now|moment/.test(s)) return 0;
+    const m = s.match(/(\d+)\s*(minute|hour|day|week|month)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      const unit = m[2];
+      const perHour = { minute: 1 / 60, hour: 1, day: 24, week: 24 * 7, month: 24 * 30 };
+      return n * (perHour[unit] || 1);
+    }
+  }
+  // Fallback: publishedAt (day granularity)
+  const p = job.publishedAt ? Date.parse(job.publishedAt) : NaN;
+  if (!Number.isNaN(p)) return Math.max(0, (Date.now() - p) / 3_600_000);
+  return Infinity;
+}
+
 // --------------------------------------------------------------------------- //
 // Apify
 // --------------------------------------------------------------------------- //
@@ -233,12 +267,16 @@ async function runSheetPipeline() {
   const startTime = Date.now();
   const items = await runScraper();
 
-  // Score floor + mid-level post-filter (this is Option B).
+  // Score floor + mid-level post-filter (Option B) + external-apply only
+  // (drop LinkedIn Easy Apply - keep company-career-site applications).
   const filtered = items.filter(
-    (j) => (j.keywordMatchScorePercentage || 0) >= MIN_MATCH && isMidLevel(j)
+    (j) =>
+      (j.keywordMatchScorePercentage || 0) >= MIN_MATCH &&
+      isMidLevel(j) &&
+      isExternalApply(j)
   );
   const dropped = items.length - filtered.length;
-  logger.info(`[sheet] Kept ${filtered.length} after filter (dropped ${dropped}: senior/low-match).`);
+  logger.info(`[sheet] Kept ${filtered.length} after filter (dropped ${dropped}: senior/low-match/easy-apply).`);
 
   const ws = await openSheet();
   const seen = await existingJobIds(ws);
@@ -247,9 +285,12 @@ async function runSheetPipeline() {
   const newRows = [];
   const addedIds = new Set();
 
-  const sorted = [...filtered].sort(
-    (a, b) => (b.keywordMatchScorePercentage || 0) - (a.keywordMatchScorePercentage || 0)
-  );
+  // Newest posted first (tie-break by higher match score).
+  const sorted = [...filtered].sort((a, b) => {
+    const ageDiff = postedAgeHours(a) - postedAgeHours(b);
+    if (ageDiff !== 0) return ageDiff;
+    return (b.keywordMatchScorePercentage || 0) - (a.keywordMatchScorePercentage || 0);
+  });
 
   for (const j of sorted) {
     const jid = String(j.jobId ?? '');
@@ -270,7 +311,9 @@ async function runSheetPipeline() {
   return { scraped: items.length, kept: filtered.length, appended: newRows.length };
 }
 
-module.exports = { runSheetPipeline, requiredYears, isMidLevel, toRow, HEADER };
+module.exports = {
+  runSheetPipeline, requiredYears, isMidLevel, isExternalApply, postedAgeHours, toRow, HEADER,
+};
 
 // Run directly for local testing: `node src/apify/sheetPipeline.js`
 if (require.main === module) {
