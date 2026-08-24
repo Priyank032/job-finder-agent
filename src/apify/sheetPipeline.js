@@ -26,6 +26,7 @@ const { ApifyClient } = require('apify-client');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 const { applyHttpsFetch } = require('./httpsFetch');
+const { CAREER_BOARDS } = require('./careerBoards');
 const logger = require('../utils/logger');
 
 // --------------------------------------------------------------------------- //
@@ -33,6 +34,11 @@ const logger = require('../utils/logger');
 // --------------------------------------------------------------------------- //
 const SHEET_ID = process.env.JOB_SHEET_ID || '1Pht8ULtIbQQiSmi7oizuGC3MYMU8WV79chBYoEK5D-U';
 const ACTOR_ID = 'cheap_scraper/linkedin-job-scraper';
+const CAREERS_ACTOR_ID = 'piotrv1001/company-career-page-scraper';
+
+// Careers source: only pull jobs first posted within this many days (fresh).
+const CAREERS_POSTED_WITHIN_DAYS = 21;
+const CAREERS_MAX_PER_COMPANY = 40;
 
 const MAX_YEARS = 4;   // drop jobs whose MINIMUM required experience is >= this (keep < 4 yrs)
 const MIN_MATCH = 40;  // drop jobs whose resume-match score is below this (0-100)
@@ -161,8 +167,76 @@ async function runScraper() {
   logger.info(`[sheet] Starting Apify actor ${ACTOR_ID} ...`);
   const run = await client.actor(ACTOR_ID).call(SCRAPER_INPUT);
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
-  logger.info(`[sheet] Scraped ${items.length} raw jobs.`);
+  logger.info(`[sheet] Scraped ${items.length} raw jobs (LinkedIn).`);
   return items;
+}
+
+/** ISO date N days ago (YYYY-MM-DD) for the careers freshness filter. */
+function isoDaysAgo(days) {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Second source: real company career pages (Greenhouse/Lever/Ashby) via the
+ * careers actor, restricted to India/remote AI/backend/software roles. Mapped
+ * into the SAME shape the LinkedIn actor produces so the rest of the pipeline
+ * (filters, dedup, sheet rows) treats both identically. Never throws - a
+ * careers-source failure must not break the LinkedIn flow.
+ */
+async function runCareersScraper() {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) throw new Error('Missing env var: APIFY_TOKEN');
+
+  const input = {
+    startUrls: CAREER_BOARDS,
+    keywords: ['engineer', 'backend', 'AI', 'LLM', 'GenAI', 'software', 'developer', 'python'],
+    location: 'India',
+    workplaceType: ['remote', 'hybrid', 'on-site'],
+    postedAfter: isoDaysAgo(CAREERS_POSTED_WITHIN_DAYS),
+    maxJobsPerCompany: CAREERS_MAX_PER_COMPANY,
+    enrichWithAI: false,
+  };
+
+  const client = new ApifyClient({ token });
+  logger.info(`[sheet] Starting careers actor ${CAREERS_ACTOR_ID} (${CAREER_BOARDS.length} boards) ...`);
+  try {
+    const run = await client.actor(CAREERS_ACTOR_ID).call(input);
+    const { items } = await client.dataset(run.defaultDatasetId).listItems();
+    const mapped = items.map(mapCareerJob);
+    logger.info(`[sheet] Scraped ${mapped.length} raw jobs (careers pages).`);
+    return mapped;
+  } catch (err) {
+    logger.error(`[sheet] Careers source failed (continuing with LinkedIn only): ${err.message}`);
+    return [];
+  }
+}
+
+/** Map a careers-actor row to the LinkedIn-actor job shape used downstream. */
+function mapCareerJob(j) {
+  const posted = j.postedAt ? Date.parse(j.postedAt) : NaN;
+  const daysAgo = Number.isNaN(posted) ? null : Math.floor((Date.now() - posted) / 86_400_000);
+  const salaryInfo = [];
+  if (j.salaryMin) salaryInfo.push(j.salaryMin);
+  if (j.salaryMax) salaryInfo.push(j.salaryMax);
+
+  return {
+    jobId: j.jobId ? `careers:${j.jobId}` : `careers:${j.applyUrl || j.jobUrl || ''}`,
+    jobTitle: j.title || '',
+    companyName: j.companyName || '',
+    location: j.location || [j.locationCity, j.locationRegion, j.locationCountry].filter(Boolean).join(', '),
+    experienceLevel: j.seniority || '',
+    postedTime: daysAgo === null ? '' : (daysAgo <= 0 ? 'Today' : `${daysAgo} days ago`),
+    publishedAt: j.postedAt || '',
+    jobUrl: j.applyUrl || j.jobUrl || '',
+    salaryInfo,
+    jobDescription: j.descriptionText || '',
+    matchedKeywords: Array.isArray(j.skills) ? j.skills.slice(0, 8) : [],
+    // Careers-page jobs are by definition external-apply, and we have no
+    // keyword score - set to MIN_MATCH so they pass the score floor.
+    keywordMatchScorePercentage: MIN_MATCH,
+    applyType: 'EXTERNAL',
+    _source: 'careers',
+  };
 }
 
 // --------------------------------------------------------------------------- //
@@ -265,10 +339,18 @@ function toRow(job, today) {
 // --------------------------------------------------------------------------- //
 async function runSheetPipeline() {
   const startTime = Date.now();
-  const items = await runScraper();
+
+  // Two sources in parallel: LinkedIn actor + company career pages.
+  const [linkedinItems, careersItems] = await Promise.all([
+    runScraper(),
+    runCareersScraper(),
+  ]);
+  const items = [...linkedinItems, ...careersItems];
+  logger.info(`[sheet] Total raw: ${items.length} (LinkedIn ${linkedinItems.length} + careers ${careersItems.length}).`);
 
   // Score floor + mid-level post-filter (Option B) + external-apply only
   // (drop LinkedIn Easy Apply - keep company-career-site applications).
+  // Careers rows already come in as external-apply at the score floor.
   const filtered = items.filter(
     (j) =>
       (j.keywordMatchScorePercentage || 0) >= MIN_MATCH &&
