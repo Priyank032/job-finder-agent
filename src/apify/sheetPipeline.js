@@ -47,17 +47,21 @@ const MIN_MATCH = 40;  // drop jobs whose resume-match score is below this (0-10
 const { isTitleRejected } = require('../utils/roleFilter');
 
 const SCRAPER_INPUT = {
-  keyword: ['AI Engineer', 'LLM Engineer', 'Backend Developer'],
+  // Widened to compensate for the Easy-Apply drop (~half of results removed).
+  keyword: [
+    'AI Engineer', 'LLM Engineer', 'GenAI Engineer', 'Backend Developer',
+    'Software Engineer', 'Full Stack Developer', 'Python Developer', 'Node.js Developer',
+  ],
   locations: [
-    'Delhi, India', 'Noida, India', 'Gurugram, India',
-    'Indore, India', 'India',
+    'Delhi, India', 'Noida, India', 'Gurugram, India', 'Indore, India',
+    'Bengaluru, India', 'Hyderabad, India', 'Pune, India', 'Mumbai, India', 'India',
   ],
   workType: ['remote', 'hybrid', 'on-site'],
   experienceLevel: ['associate', 'mid-senior'],
   publishedAt: 'r86400', // last 24h - the daily window
   saveOnlyUniqueItems: true,
   enrichCompanyData: false,
-  maxItems: 150,
+  maxItems: 250,
   resumeKeywords: [
     { keyword: 'LangChain', aliases: ['LangGraph', 'LangSmith'] },
     { keyword: 'LLM', aliases: ['Large Language Model', 'GenAI', 'Generative AI'] },
@@ -110,11 +114,18 @@ function requiredYears(text) {
   return mins.length ? Math.min(...mins) : null;
 }
 
-/** True if the job fits: right discipline, mid-level, not over-level title. */
+// Senior/Sr in the title. Blocked outright for the SHEET job: the years-parse
+// takes the smallest "N years" in a JD, so a senior role that mentions "2+ yrs"
+// for one sub-skill was slipping through. Blocking by title kills that leak.
+const SENIOR_TITLE = /\b(senior|sr\.?|snr)\b/i;
+
+/** True if the job fits: right discipline, mid-level, not senior/over-level title. */
 function isMidLevel(job) {
   const title = job.jobTitle || '';
   // Over-level (lead/principal/...) or wrong discipline (ML/data/java/devops/...).
   if (isTitleRejected(title)) return false;
+  // Senior/Sr titles are dropped for the sheet job (see note above).
+  if (SENIOR_TITLE.test(title)) return false;
 
   const yrs = requiredYears(job.jobDescription || '');
   if (yrs !== null && yrs >= MAX_YEARS) return false; // e.g. "4 to 6 years" -> 4 -> dropped
