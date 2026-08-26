@@ -46,6 +46,28 @@ const MIN_MATCH = 40;  // drop jobs whose resume-match score is below this (0-10
 // Over-level + off-lane title filtering is shared with the email agent.
 const { isTitleRejected } = require('../utils/roleFilter');
 
+/**
+ * Retry a Google Sheets API call on transient errors (429 rate-limit, 500/503
+ * service unavailable). Without this, a single Google blip aborts the whole run
+ * and loses that day's jobs (as happened on the 10 AM 2026-08-26 run: [503]).
+ * Exponential backoff: ~2s, 4s, 8s, 16s.
+ */
+async function withRetry(label, fn, attempts = 5) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = String(err && err.message || err);
+      const transient = /\[(429|500|502|503)\]|rate limit|unavailable|quota exceeded|ECONNRESET|ETIMEDOUT/i.test(msg);
+      if (!transient || i === attempts) throw err;
+      const waitMs = 2000 * 2 ** (i - 1);
+      logger.warn(`[sheet] ${label} failed (${msg.slice(0, 80)}) - retry ${i}/${attempts - 1} in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  return undefined; // unreachable
+}
+
 const SCRAPER_INPUT = {
   // Widened to compensate for the Easy-Apply drop (~half of results removed).
   keyword: [
@@ -278,7 +300,7 @@ async function openSheet() {
   applyHttpsFetch(jwt);
 
   const doc = new GoogleSpreadsheet(SHEET_ID, jwt);
-  await doc.loadInfo();
+  await withRetry('loadInfo', () => doc.loadInfo());
   const ws = doc.sheetsByIndex[0];
 
   // Reconcile the header row to HEADER. loadHeaderRow throws if row 1 is empty.
@@ -313,7 +335,7 @@ async function openSheet() {
 
 /** Job IDs already in the sheet - used for cross-day dedup. */
 async function existingJobIds(ws) {
-  const rows = await ws.getRows();
+  const rows = await withRetry('getRows', () => ws.getRows());
   const seen = new Set();
   for (const row of rows) {
     const id = row.get('Job ID');
@@ -393,7 +415,7 @@ async function runSheetPipeline() {
   }
 
   if (newRows.length) {
-    await ws.addRows(newRows, { insert: false, raw: false });
+    await withRetry('addRows', () => ws.addRows(newRows, { insert: false, raw: false }));
     logger.info(`[sheet] Appended ${newRows.length} new jobs to the sheet.`);
   } else {
     logger.info('[sheet] No new jobs today.');
