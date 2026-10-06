@@ -1,10 +1,10 @@
 # AI Job Finder Agent
 
-An intelligent job finder agent that scrapes jobs from 30+ platforms daily, matches them to your resume using AI (Claude/Gemini/GPT), and sends the best matches to your email and WhatsApp.
+An intelligent job finder agent that scrapes jobs daily from 10 sources plus 35 company career boards, matches them to your resume using AI (Claude/Gemini/GPT), and sends the best matches to your email and WhatsApp.
 
 ## Features
 
-- **Multi-platform scraping**: 30+ job platforms (LinkedIn, Indeed, Naukri, RemoteOK, Glassdoor, and more)
+- **Multi-source scraping**: LinkedIn, Indeed, Glassdoor, Google Jobs and Naukri via JobSpy, plus 5 direct scrapers (RemoteOK, Himalayas, Arbeitnow, Cutshort, company careers pages). A separate Apify pipeline pulls 35 company career boards (Greenhouse, Lever, Ashby)
 - **AI-powered matching**: Uses Claude API (primary), Gemini (fallback), or OpenAI GPT (fallback) to score job matches
 - **Smart deduplication**: Never sends the same job twice (tracked in MongoDB)
 - **Email reports**: Beautiful HTML email with top matches, cold email opportunities, and apply links
